@@ -1,0 +1,44 @@
+name: Controlled QA chaos experiment
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  expected-test-failure:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install QA dependencies
+        run: python -m pip install 'pytest>=8,<10' 'pytest-cov>=5,<8'
+      - name: Expect red test result
+        run: python -m pytest -q tests/test_chaos_lab.py
+
+  expected-coverage-failure:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install QA dependencies
+        run: python -m pip install 'pytest>=8,<10' 'pytest-cov>=5,<8'
+      - name: Expect passing tests but failed 80 percent coverage gate
+        run: |
+          python -m pytest -q tests/test_chaos_coverage.py \
+            --cov=chaos_lab --cov-branch --cov-fail-under=80 \
+            --cov-report=xml:chaos-coverage.xml \
+            --junitxml=chaos-test-results.xml
+      - name: Preserve test and coverage evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: chaos-qa-reports
+          path: |
+            chaos-coverage.xml
+            chaos-test-results.xml
+          if-no-files-found: warn
